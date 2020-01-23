@@ -70,6 +70,13 @@ public:
     fingerprints.push_back(static_cast<uint64_t>(fp));
     fill_synchronizing_set(0, (text_length_in_bytes_ - (2*kTau)), fp,
                            fingerprints, s_fingerprints);
+
+    {
+        std::ofstream f("sss");
+        for(size_t i = 0; i < sync_set_.size(); ++i) {
+            f << sync_set_[i] << std::endl;
+        }
+    }
     
     ind_ = std::make_unique<stash::pred::index<std::vector<uint64_t>, uint64_t, 7>>(sync_set_);         
 
@@ -252,11 +259,11 @@ private:
       fp *= 256;
       fp += (unsigned char) text_[kTau+fingerprints.size() - 1];
       fp %= kPrime;
-				
+                
       unsigned __int128 first_char_influence = text_[fingerprints.size() - 1];
       first_char_influence *= TwoPowTauModQ;
       first_char_influence %= kPrime;
-				
+                
       if(first_char_influence < fp) {
         fp -= first_char_influence;
       } else {
