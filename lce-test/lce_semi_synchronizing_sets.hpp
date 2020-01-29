@@ -18,6 +18,7 @@
 
 #include <tlx/define/likely.hpp>
 
+#include <cassert>
 #include <cmath>
 #include <vector>
 #include <memory>
@@ -57,6 +58,44 @@ public:
 
   using sss_type = uint32_t;
 
+private:
+    template<typename succ_ds_t, typename array_t>
+    void assert_successor_ds(const array_t& a, const succ_ds_t& succ_ds) {
+    #ifndef NDEBUG
+        const size_t n = a.size();
+    
+        // determine maximum
+        sss_type max = 0;
+        for(size_t i = 0; i < n; i++) {
+            if(a[i] > max) max = a[i];
+        }
+
+        // construct a bit vector B[0..max] with B[x]=1 <=> x is in a
+        std::vector<bool> contained(max+1);
+        for(size_t i = 0; i < n; i++) {
+            contained[a[i]] = 1;
+        }
+
+        // for every number q from 0 to max, make sure the data structure actually returns the successor
+        for(sss_type q = 0; q <= max; q++) {
+            const auto succ = succ_ds.successor(q);
+            assert(succ.exists); // a successor of q must exist
+
+            const size_t i = succ.pos;
+            assert(i < n); // the successor is located in the array
+            const sss_type y = a[i];
+            assert(y >= q); // the successor is actually equal to or larger than q
+
+            // there is no x with q <= x < y (then x would be the correct successor)
+            for(sss_type x = q; q < y; q++) {
+                assert(!contained[x]);
+            }
+        }
+
+        std::cout << std::endl << "successor data struture verified" << std::endl;
+    #endif
+    }
+
 public:
   LceSemiSyncSets(std::vector<uint8_t> const& text, bool const print_ss_size)
     : text_(text), text_length_in_bytes_(text_.size()) {
@@ -73,7 +112,8 @@ public:
     fill_synchronizing_set(0, (text_length_in_bytes_ - (2*kTau)), fp,
                            fingerprints, s_fingerprints);
     
-    ind_ = std::make_unique<stash::pred::index<std::vector<sss_type>, sss_type, 7>>(sync_set_);         
+    ind_ = std::make_unique<stash::pred::index<std::vector<sss_type>, sss_type, 7>>(sync_set_);
+    assert_successor_ds(sync_set_, *ind_);
 
     lce_rmq_ = std::make_unique<Lce_rmq<sss_type, kTau>>(text_.data(),
                                                          text_length_in_bytes_,
@@ -255,11 +295,11 @@ private:
       fp *= 256;
       fp += (unsigned char) text_[kTau+fingerprints.size() - 1];
       fp %= kPrime;
-				
+                
       unsigned __int128 first_char_influence = text_[fingerprints.size() - 1];
       first_char_influence *= TwoPowTauModQ;
       first_char_influence %= kPrime;
-				
+                
       if(first_char_influence < fp) {
         fp -= first_char_influence;
       } else {

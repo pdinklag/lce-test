@@ -79,6 +79,32 @@ public:
     new_text.push_back(0);
     sais_int(new_text.data(), new_sa.data(), new_text.size(), 2 * cur_rank + 1);
 
+    // assert that the strings are actually sorted
+#ifndef NDEBUG
+    for(size_t i = 1; i < new_sa.size() - 1; i++) {
+        size_t l = 0;
+        size_t a = sync_set[new_sa[i]];
+        size_t b = sync_set[new_sa[i+1]];
+        
+        while(a < v_text_size && b < v_text_size && v_text[a] == v_text[b]) {
+            ++a;
+            ++b;
+            ++l;
+        }
+
+        if(a < v_text_size && b < v_text_size && v_text[b] < v_text[a]) {
+            std::cout << "string sorting violated with lcp=" << l << " (kTau=" << kTau << ")" << std::endl;
+            std::cout << "a: ";
+            for(size_t j = 0; j <= l; j++) std::cout << uint64_t(v_text[sync_set[new_sa[i]]+j]) << " ";
+            std::cout << "(suffix " << sync_set[new_sa[i]] << ")" << std::endl << "b: ";
+            for(size_t j = 0; j <= l; j++) std::cout << uint64_t(v_text[sync_set[new_sa[i+1]]+j]) << " ";
+            std::cout << "(suffix " << sync_set[new_sa[i+1]] << ")" << std::endl;
+        }
+        assert(v_text[b] >= v_text[a]);
+    }
+    std::cout << "sss suffixes are lex sorted" << std::endl;
+#endif
+
     lcp = std::vector<uint64_t>(new_sa.size() - 1, 0);
 
     isa.resize(new_sa.size() - 1);
@@ -86,14 +112,52 @@ public:
       isa[new_sa[i]] = i - 1;
       lcp[i] = lce_in_text(sync_set[new_sa[i]],
                            sync_set[new_sa[i + 1]]);
+
+#ifndef NDEBUG
+        // verify LCP
+        size_t l = 0;
+        size_t a = sync_set[new_sa[i]];
+        size_t b = sync_set[new_sa[i+1]];
+        
+        while(a < v_text_size && b < v_text_size && v_text[a] == v_text[b]) {
+            ++a;
+            ++b;
+            ++l;
+        }
+        assert(l == lcp[i]);
+#endif
     }
+
+#ifndef NDEBUG
+    std::cout << "lcp array verified" << std::endl;
+#endif
 
     //Build RMQ data structure
     rmq_ds1 = std::make_unique<RMQRMM64>((long int*)lcp.data(), lcp.size());
-  }
-	
 
-	
+#ifndef NDEBUG
+    // verify RMQ data structure
+    for(size_t i = 0; i < lcp.size(); i++) {
+        for(size_t j = i + 1; j < lcp.size(); j++) {
+            const ulong rmq = rmq_ds1->queryRMQ(i, j);
+
+            size_t min = SIZE_MAX;
+            for(size_t k = i; k < j; k++) {
+                if(lcp[k] < min) min = lcp[k];
+            }
+
+            if(min != rmq) {
+                std::cout << "RMQ data structure invalid for (" << i << ", " << j << "), min=" << min << " vs. rmq=" << rmq << std::endl;
+            }
+            assert(min == rmq);
+        }
+    }
+    std::cout << "RMQ data structure verified" << std::endl;
+#endif
+  }
+    
+
+    
   uint64_t lce(uint64_t i, uint64_t j) const {
     if(i == j) {
       return text_size - i;
@@ -112,7 +176,7 @@ public:
     }
     return result;
   }
-	
+    
   uint64_t get_size() {
     return text_size;
   }
@@ -120,7 +184,7 @@ public:
 private:
   uint8_t const * const text;
   uint64_t text_size;
-	
+    
   std::vector<uint64_t> isa;
   std::vector<uint64_t> lcp;
   //Rmq * rmq_ds;
