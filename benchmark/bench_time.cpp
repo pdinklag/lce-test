@@ -233,20 +233,64 @@ public:
         }
         lc.close();
 
+#ifndef NDEBUG
+          size_t num_errors = 0;
+          size_t err_max = 0;
+          size_t err_min = SIZE_MAX;
+#endif
+
         if (v.size() > 0) {
           for(uint64_t i = 0; i < number_lce_queries * 2; ++i) {
             lce_indices[i] = v[i % v.size()];
           }
+          
           for (size_t i = 0; i < runs; ++i) {
             t.reset();
             for (size_t j = 0; j < number_lce_queries * 2; j += 2) {
               size_t const lce = lce_structure->lce(lce_indices[j],
                                                     lce_indices[j + 1]);
               lce_values.add(lce);
+
+#ifndef NDEBUG
+                // compute LCE naively
+                {
+                    const size_t n = text.size();
+                    size_t l = 0;
+
+                    const auto a = lce_indices[j];
+                    const auto b = lce_indices[j+1];
+                    
+                    auto p = a;
+                    auto q = b;
+                    while(p < n && q < n && text[p] == text[q]) {
+                        ++l;
+                        ++p;
+                        ++q;
+                    }
+
+                    if(l != lce) {
+                        ++num_errors;
+                        err_min = std::min(err_min, l);
+                        err_max = std::max(err_max, l);
+                        std::cerr << "i=" << a << ", j=" << b << ", l=" << l << ", lce=" << lce << " ERROR" << std::endl;
+                    }
+                    //assert(l == lce);
+                }
+#endif
             }
             queries_times.add(t.get_and_reset());
           }
         }
+        
+#ifndef NDEBUG
+        std::cout << "errors=" << num_errors << " ";
+
+        if(num_errors) {
+            std::cout << "err_lce_min=" << err_min << " ";
+            std::cout << "err_lce_max=" << err_max << " ";
+        }
+#endif
+        
         std::cout << "lce_values_min=" << lce_values.min() << " "
                   << "lce_values_max=" << lce_values.max() << " "
                   << "lce_values_avg=" << lce_values.avg() << " "

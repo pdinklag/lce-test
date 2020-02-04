@@ -100,7 +100,7 @@ public:
             for(size_t j = 0; j <= l; j++) std::cout << uint64_t(v_text[sync_set[new_sa[i+1]]+j]) << " ";
             std::cout << "(suffix " << sync_set[new_sa[i+1]] << ")" << std::endl;
         }
-        assert(v_text[b] >= v_text[a]);
+        assert(a >= v_text_size || b >= v_text_size || v_text[b] >= v_text[a]);
     }
     std::cout << "sss suffixes are lex sorted" << std::endl;
 #endif
@@ -130,29 +130,39 @@ public:
 
 #ifndef NDEBUG
     std::cout << "lcp array verified" << std::endl;
+    sa = std::move(new_sa);
+    sync_set_ = &sync_set;
 #endif
 
     //Build RMQ data structure
     rmq_ds1 = std::make_unique<RMQRMM64>((long int*)lcp.data(), lcp.size());
 
 #ifndef NDEBUG
-    // verify RMQ data structure
+    // verify RMQ data structure (QUADRATIC TIME!)
+    /*    
+    std::cout << "lcp.size() = " << lcp.size() << std::endl;
+
     for(size_t i = 0; i < lcp.size(); i++) {
         for(size_t j = i + 1; j < lcp.size(); j++) {
             const ulong rmq = rmq_ds1->queryRMQ(i, j);
 
             size_t min = SIZE_MAX;
-            for(size_t k = i; k < j; k++) {
-                if(lcp[k] < min) min = lcp[k];
+            size_t min_pos = SIZE_MAX;
+            for(size_t k = i; k <= j; k++) {
+                if(lcp[k] < min) {
+                    min = lcp[k];
+                    min_pos = k;
+                }
             }
 
-            if(min != rmq) {
+            if(lcp[min_pos] != lcp[rmq]) {
                 std::cout << "RMQ data structure invalid for (" << i << ", " << j << "), min=" << min << " vs. rmq=" << rmq << std::endl;
             }
-            assert(min == rmq);
+            assert(lcp[min_pos] == lcp[rmq]);
         }
     }
     std::cout << "RMQ data structure verified" << std::endl;
+    */
 #endif
   }
     
@@ -166,13 +176,17 @@ public:
     auto min = std::min(isa[i], isa[j]) + 1;
     auto max = std::max(isa[i], isa[j]);
 
-    if (max - min > 1024) {
+#ifndef NDEBUG
+    std::cerr << "i=" << (*sync_set_)[i] << ", j=" << (*sync_set_)[j] << ", distance in lcp array: " << (max-min) << std::endl;
+#endif
+
+    /*if (max - min > 1024) {
       return lcp[rmq_ds1->queryRMQ(min, max)];
-    }
+    }*/
 
     auto result = lcp[min];
     for (auto i = min + 1; i <= max; ++i) {
-      result = std::max(result, lcp[i]);
+      result = std::min(result, lcp[i]);
     }
     return result;
   }
@@ -184,7 +198,12 @@ public:
 private:
   uint8_t const * const text;
   uint64_t text_size;
-    
+
+#ifndef NDEBUG
+  std::vector<int32_t> sa; // FIXME ONLY FOR DEBUGGING !!
+  const std::vector<sss_type>* sync_set_ = nullptr;
+#endif
+
   std::vector<uint64_t> isa;
   std::vector<uint64_t> lcp;
   //Rmq * rmq_ds;
