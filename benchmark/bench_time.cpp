@@ -25,6 +25,7 @@
 #include "timer.hpp"
 #include "build_lce_ranges.hpp"
 #include "lce_naive.hpp"
+#include "lce_naive_xor.hpp"
 #include "lce_naive_ultra.hpp"
 #include "lce_prezza.hpp"
 #include "lce_prezza_mersenne.hpp"
@@ -98,6 +99,13 @@ public:
         size_t const mem_before = malloc_count_current();
         t.reset();
         lce_structure = std::make_unique<LceNaive>(text);
+        construction_times.add(t.get_and_reset());
+        lce_mem.add(malloc_count_current() - mem_before);
+        construction_mem_peak.add(malloc_count_peak() - mem_before);
+      } else if (algorithm == "nx") {
+        size_t const mem_before = malloc_count_current();
+        t.reset();
+        lce_structure = std::make_unique<LceNaiveXor>(text);
         construction_times.add(t.get_and_reset());
         lce_mem.add(malloc_count_current() - mem_before);
         construction_mem_peak.add(malloc_count_peak() - mem_before);
@@ -330,6 +338,8 @@ private:
       name = "ultra_naive";
     } else if (algorithm == "n") {
       name = "naive";
+    } else if (algorithm == "nx") {
+      name = "naive_xor";
     } else if (algorithm == "m") {
       name = "prezza_mersenne";
     } else if (algorithm == "p") {
